@@ -2,10 +2,17 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "값진날 — 우리끼리 매기는 추억의 값",
-  description: "친구들과 사진을 올리고 마음만큼의 금액을 붙여 순위를 만드는 비공개 추억 아카이브",
+  metadataBase: new URL("https://new-chat-rho-jade.vercel.app"),
+  title: "값진날 — 우리의 추억, 얼마면 돼?",
+  description: "다섯 친구가 사진을 올리고 각자의 마음값을 매기는 신나는 추억 파티.",
+  openGraph: {
+    title: "값진날 — 우리의 추억, 얼마면 돼?",
+    description: "민영, 미교, 보연, 주연, 현정의 값진 추억 파티",
+    images: ["/og.png"],
+  },
+  twitter: { card: "summary_large_image", images: ["/og.png"] },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({children}:{children:React.ReactNode}) {
   return <html lang="ko"><body>{children}</body></html>;
 }
