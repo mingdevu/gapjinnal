@@ -28,6 +28,31 @@ export async function ensureMemoryTable() {
     photo_url TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
+  await client()`CREATE TABLE IF NOT EXISTS memory_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_id UUID NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+    profile_name TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`;
+  await client()`CREATE TABLE IF NOT EXISTS restaurants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    location TEXT NOT NULL,
+    menu TEXT NOT NULL,
+    price TEXT NOT NULL,
+    note TEXT NOT NULL,
+    photo_url TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`;
+  await client()`CREATE TABLE IF NOT EXISTS restaurant_votes (
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    profile_name TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (restaurant_id, profile_name)
+  )`;
 }
 
 function mapRow(row: Record<string, unknown>): MemoryRow {
@@ -79,4 +104,51 @@ export async function saveProfilePhoto(name:string, photo:string) {
   await client()`INSERT INTO friend_profiles (name,photo_url) VALUES (${name},${photo})
     ON CONFLICT (name) DO UPDATE SET photo_url=EXCLUDED.photo_url,updated_at=NOW()`;
   return {name,photo};
+}
+
+export async function listComments(memoryId:string) {
+  await ensureMemoryTable();
+  const rows=await client()`SELECT id,profile_name,body,created_at FROM memory_comments
+    WHERE memory_id=${memoryId} ORDER BY created_at ASC`;
+  return rows.map(row=>({
+    id:String(row.id), profileName:String(row.profile_name), body:String(row.body),
+    date:new Intl.DateTimeFormat("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Seoul"}).format(new Date(String(row.created_at)))
+  }));
+}
+
+export async function createComment(memoryId:string, profileName:string, body:string) {
+  await ensureMemoryTable();
+  if (!PROFILE_NAMES.includes(profileName as typeof PROFILE_NAMES[number])) throw new Error("Invalid profile");
+  await client()`INSERT INTO memory_comments (memory_id,profile_name,body) VALUES (${memoryId},${profileName},${body})`;
+  return listComments(memoryId);
+}
+
+export async function listRestaurants() {
+  await ensureMemoryTable();
+  const rows=await client()`SELECT r.id,r.name,r.category,r.location,r.menu,r.price,r.note,r.photo_url,r.owner,
+    COUNT(v.profile_name) AS vote_count, ARRAY_REMOVE(ARRAY_AGG(v.profile_name),NULL) AS voters
+    FROM restaurants r LEFT JOIN restaurant_votes v ON v.restaurant_id=r.id
+    GROUP BY r.id ORDER BY vote_count DESC,r.created_at DESC`;
+  return rows.map(row=>({
+    id:String(row.id),name:String(row.name),category:String(row.category),location:String(row.location),
+    menu:String(row.menu),price:String(row.price),note:String(row.note),photo:String(row.photo_url),
+    owner:String(row.owner),voteCount:Number(row.vote_count),voters:Array.isArray(row.voters)?row.voters.map(String):[]
+  }));
+}
+
+export async function createRestaurant(input:{name:string;category:string;location:string;menu:string;price:string;note:string;photo:string;owner:string}) {
+  await ensureMemoryTable();
+  if (!PROFILE_NAMES.includes(input.owner as typeof PROFILE_NAMES[number])) throw new Error("Invalid profile");
+  await client()`INSERT INTO restaurants (name,category,location,menu,price,note,photo_url,owner)
+    VALUES (${input.name},${input.category},${input.location},${input.menu},${input.price},${input.note},${input.photo},${input.owner})`;
+  return listRestaurants();
+}
+
+export async function toggleRestaurantVote(restaurantId:string,profileName:string) {
+  await ensureMemoryTable();
+  if (!PROFILE_NAMES.includes(profileName as typeof PROFILE_NAMES[number])) throw new Error("Invalid profile");
+  const exists=await client()`SELECT 1 FROM restaurant_votes WHERE restaurant_id=${restaurantId} AND profile_name=${profileName}`;
+  if(exists.length) await client()`DELETE FROM restaurant_votes WHERE restaurant_id=${restaurantId} AND profile_name=${profileName}`;
+  else await client()`INSERT INTO restaurant_votes (restaurant_id,profile_name) VALUES (${restaurantId},${profileName})`;
+  return listRestaurants();
 }
