@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "다섯 친구가 사진을 올리고 각자의 마음값을 매기는 신나는 추억 파티.",
   openGraph: {
     title: "값진날 — 우리의 추억, 얼마면 돼?",
-    description: "민영, 미교, 보연, 주연, 현정의 값진 추억 파티",
+    description: "플렉스요정·영수증마왕·짠테크장인·마음부자·할부천사의 값진 추억 파티",
     images: ["/og.png"],
   },
   twitter: { card: "summary_large_image", images: ["/og.png"] },

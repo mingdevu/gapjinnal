@@ -1,7 +1,9 @@
 import { neon } from "@neondatabase/serverless";
 
 export type MemoryRow = { id:string; title:string; place:string; owner:string; value:number; image:string; date:string; accent:string; ratingCount:number };
-export const PROFILE_NAMES = ["박민영", "최미교", "최보연", "이주연", "이현정"] as const;
+import { PROFILE_NAMES, isProfileName } from "./profiles";
+
+export { PROFILE_NAMES };
 
 function client() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not configured");
@@ -83,7 +85,7 @@ export async function createMemory(input: {title:string;place:string;owner:strin
 
 export async function rateMemory(memoryId:string, profileName:string, value:number) {
   await ensureMemoryTable();
-  if (!PROFILE_NAMES.includes(profileName as typeof PROFILE_NAMES[number])) throw new Error("Invalid profile");
+  if (!isProfileName(profileName)) throw new Error("Invalid profile");
   await client()`INSERT INTO memory_ratings (memory_id,profile_name,value)
     VALUES (${memoryId},${profileName},${value})
     ON CONFLICT (memory_id,profile_name) DO UPDATE SET value=EXCLUDED.value,created_at=NOW()`;
@@ -100,7 +102,7 @@ export async function listProfiles() {
 
 export async function saveProfilePhoto(name:string, photo:string) {
   await ensureMemoryTable();
-  if (!PROFILE_NAMES.includes(name as typeof PROFILE_NAMES[number])) throw new Error("Invalid profile");
+  if (!isProfileName(name)) throw new Error("Invalid profile");
   await client()`INSERT INTO friend_profiles (name,photo_url) VALUES (${name},${photo})
     ON CONFLICT (name) DO UPDATE SET photo_url=EXCLUDED.photo_url,updated_at=NOW()`;
   return {name,photo};
@@ -118,7 +120,7 @@ export async function listComments(memoryId:string) {
 
 export async function createComment(memoryId:string, profileName:string, body:string) {
   await ensureMemoryTable();
-  if (!PROFILE_NAMES.includes(profileName as typeof PROFILE_NAMES[number])) throw new Error("Invalid profile");
+  if (!isProfileName(profileName)) throw new Error("Invalid profile");
   await client()`INSERT INTO memory_comments (memory_id,profile_name,body) VALUES (${memoryId},${profileName},${body})`;
   return listComments(memoryId);
 }
@@ -138,7 +140,7 @@ export async function listRestaurants() {
 
 export async function createRestaurant(input:{name:string;category:string;location:string;menu:string;price:string;note:string;photo:string;owner:string}) {
   await ensureMemoryTable();
-  if (!PROFILE_NAMES.includes(input.owner as typeof PROFILE_NAMES[number])) throw new Error("Invalid profile");
+  if (!isProfileName(input.owner)) throw new Error("Invalid profile");
   await client()`INSERT INTO restaurants (name,category,location,menu,price,note,photo_url,owner)
     VALUES (${input.name},${input.category},${input.location},${input.menu},${input.price},${input.note},${input.photo},${input.owner})`;
   return listRestaurants();
@@ -146,7 +148,7 @@ export async function createRestaurant(input:{name:string;category:string;locati
 
 export async function toggleRestaurantVote(restaurantId:string,profileName:string) {
   await ensureMemoryTable();
-  if (!PROFILE_NAMES.includes(profileName as typeof PROFILE_NAMES[number])) throw new Error("Invalid profile");
+  if (!isProfileName(profileName)) throw new Error("Invalid profile");
   const exists=await client()`SELECT 1 FROM restaurant_votes WHERE restaurant_id=${restaurantId} AND profile_name=${profileName}`;
   if(exists.length) await client()`DELETE FROM restaurant_votes WHERE restaurant_id=${restaurantId} AND profile_name=${profileName}`;
   else await client()`INSERT INTO restaurant_votes (restaurant_id,profile_name) VALUES (${restaurantId},${profileName})`;
